@@ -2,6 +2,7 @@ from fog_env import Offload
 from RL_brain import DeepQNetwork
 import numpy as np
 import random
+
 # import matplotlib.pyplot as plt
 np.set_printoptions(threshold=np.inf)
 
@@ -17,7 +18,6 @@ def random_pick(some_list, probabilities):
 
 
 def reward_fun(delay, max_delay, unfinish_indi):
-
     # still use reward, but use the negative value
     penalty = - max_delay * 2
 
@@ -30,7 +30,6 @@ def reward_fun(delay, max_delay, unfinish_indi):
 
 
 def train(iot_RL_list, NUM_EPISODE):
-
     RL_step = 0
 
     for episode in range(NUM_EPISODE):
@@ -86,7 +85,7 @@ def train(iot_RL_list, NUM_EPISODE):
 
             # should store this information in EACH time slot
             for iot_index in range(env.n_iot):
-                iot_RL_list[iot_index].update_lstm(lstm_state_all_[iot_index,:])
+                iot_RL_list[iot_index].update_lstm(lstm_state_all_[iot_index, :])
 
             process_delay = env.process_delay
             unfinish_indi = env.process_delay_unfinish_ind
@@ -98,9 +97,9 @@ def train(iot_RL_list, NUM_EPISODE):
                 history[env.time_count - 1][iot_index]['lstm'] = np.squeeze(lstm_state_all[iot_index, :])
                 history[env.time_count - 1][iot_index]['action'] = action_all[iot_index]
                 history[env.time_count - 1][iot_index]['observation_'] = observation_all_[iot_index]
-                history[env.time_count - 1][iot_index]['lstm_'] = np.squeeze(lstm_state_all_[iot_index,:])
+                history[env.time_count - 1][iot_index]['lstm_'] = np.squeeze(lstm_state_all_[iot_index, :])
 
-                update_index = np.where((1 - reward_indicator[:,iot_index]) * process_delay[:,iot_index] > 0)[0]
+                update_index = np.where((1 - reward_indicator[:, iot_index]) * process_delay[:, iot_index] > 0)[0]
 
                 if len(update_index) != 0:
                     for update_ii in range(len(update_index)):
@@ -143,8 +142,8 @@ def train(iot_RL_list, NUM_EPISODE):
 
 if __name__ == "__main__":
 
-    NUM_IOT = 50
-    NUM_FOG = 5
+    NUM_IOT = 50  # 50 mobile devices
+    NUM_FOG = 5  # 5 edge nodes
     NUM_EPISODE = 1000
     NUM_TIME_BASE = 100
     MAX_DELAY = 10

@@ -3,6 +3,7 @@ import random
 import math
 import queue
 
+
 class Offload:
 
     def __init__(self, num_iot, num_fog, num_time, max_delay):
@@ -25,12 +26,12 @@ class Offload:
         self.comp_cap_fog = 41.8 * np.ones([self.n_fog]) * self.duration  # Gigacycles per second * duration
         self.tran_cap_iot = 14 * np.ones([self.n_iot, self.n_fog]) * self.duration  # Mbps * duration
         self.comp_density = 0.297 * np.ones([self.n_iot])  # 0.297 Gigacycles per Mbits
-        self.max_delay = max_delay # time slots
+        self.max_delay = max_delay  # time slots
 
         # BITARRIVE_SET (MARKOVIAN)
         self.task_arrive_prob = 0.3
-        self.max_bit_arrive = 5 # Mbits
-        self.min_bit_arrive = 2 # Mbits
+        self.max_bit_arrive = 5  # Mbits
+        self.min_bit_arrive = 2  # Mbits
         self.bitArrive_set = np.arange(self.min_bit_arrive, self.max_bit_arrive, 0.1)
         self.bitArrive = np.zeros([self.n_time, self.n_iot])
 
@@ -77,7 +78,7 @@ class Offload:
                 self.task_on_process_fog[iot].append({'size': np.nan, 'time': np.nan, 'remain': np.nan})
 
         # TASK DELAY
-        self.process_delay = np.zeros([self.n_time, self.n_iot])    # total delay
+        self.process_delay = np.zeros([self.n_time, self.n_iot])  # total delay
         self.process_delay_unfinish_ind = np.zeros([self.n_time, self.n_iot])  # unfinished indicator
         self.process_delay_trans = np.zeros([self.n_time, self.n_iot])  # transmission delay (if applied)
 
@@ -212,9 +213,9 @@ class Offload:
             if iot_bitarrive != 0:
                 tmp_tilde_t_iot_comp = np.max([self.t_iot_comp[iot_index] + 1, self.time_count])
                 self.t_iot_comp[iot_index] = np.min([tmp_tilde_t_iot_comp
-                                                    + math.ceil(iot_bitarrive * iot_action_local[iot_index]
-                                                     / (iot_comp_cap / iot_comp_density)) - 1,
-                                                    self.time_count + self.max_delay - 1])
+                                                     + math.ceil(iot_bitarrive * iot_action_local[iot_index]
+                                                                 / (iot_comp_cap / iot_comp_density)) - 1,
+                                                     self.time_count + self.max_delay - 1])
 
         # FOG QUEUE UPDATE =========================
         for iot_index in range(self.n_iot):
@@ -248,7 +249,7 @@ class Offload:
                         - self.comp_cap_fog[fog_index] / iot_comp_density / self.fog_iot_m[fog_index]
                     # if no remain, compute processing delay
                     if self.task_on_process_fog[iot_index][fog_index]['remain'] <= 0:
-                        self.process_delay[self.task_on_process_fog[iot_index][fog_index]['time'],iot_index] \
+                        self.process_delay[self.task_on_process_fog[iot_index][fog_index]['time'], iot_index] \
                             = self.time_count - self.task_on_process_fog[iot_index][fog_index]['time'] + 1
                         self.task_on_process_fog[iot_index][fog_index]['remain'] = np.nan
                     elif self.time_count - self.task_on_process_fog[iot_index][fog_index]['time'] + 1 == self.max_delay:
@@ -271,7 +272,7 @@ class Offload:
         # TRANSMISSION QUEUE UPDATE ===================
         for iot_index in range(self.n_iot):
 
-            iot_tran_cap = np.squeeze(self.tran_cap_iot[iot_index,:])
+            iot_tran_cap = np.squeeze(self.tran_cap_iot[iot_index, :])
             iot_bitarrive = np.squeeze(self.bitArrive[self.time_count, iot_index])
 
             # INPUT
@@ -330,9 +331,9 @@ class Offload:
             if iot_bitarrive != 0:
                 tmp_tilde_t_iot_tran = np.max([self.t_iot_tran[iot_index] + 1, self.time_count])
                 self.t_iot_comp[iot_index] = np.min([tmp_tilde_t_iot_tran
-                                                    + math.ceil(iot_bitarrive * (1 - iot_action_local[iot_index])
-                                                     / iot_tran_cap[iot_action_fog[iot_index]]) - 1,
-                                                    self.time_count + self.max_delay - 1])
+                                                     + math.ceil(iot_bitarrive * (1 - iot_action_local[iot_index])
+                                                                 / iot_tran_cap[iot_action_fog[iot_index]]) - 1,
+                                                     self.time_count + self.max_delay - 1])
 
         # COMPUTE CONGESTION (FOR NEXT TIME SLOT)
         self.fog_iot_m_observe = self.fog_iot_m
