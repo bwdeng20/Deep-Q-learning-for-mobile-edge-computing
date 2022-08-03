@@ -104,10 +104,10 @@ class Offload:
         self.Queue_fog_comp = list()
 
         for iot in range(self.n_iot):
-            self.Queue_iot_comp.append(queue.Queue())
-            self.Queue_iot_tran.append(queue.Queue())
-            self.Queue_fog_comp.append(list())
-            for fog in range(self.n_fog):
+            self.Queue_iot_comp.append(queue.Queue())  # (num_dev,)
+            self.Queue_iot_tran.append(queue.Queue())  # (num_dev,)
+            self.Queue_fog_comp.append(list())  # (num_dev, num_node)
+            for fog in range(self.n_fog):  # 每个node均为所有device 初始化运算队列
                 self.Queue_fog_comp[iot].append(queue.Queue())
 
         # QUEUE INFO INITIALIZATION
@@ -176,7 +176,7 @@ class Offload:
 
             # TASK ON PROCESS
             if math.isnan(self.task_on_process_local[iot_index]['remain']) \
-                    and (not self.Queue_iot_comp[iot_index].empty()):
+                    and (not self.Queue_iot_comp[iot_index].empty()):  # 如果iot_index当前没有需要计算的任务，但任务队列不空
                 while not self.Queue_iot_comp[iot_index].empty():
                     # only put the non-zero task to the processor
                     get_task = self.Queue_iot_comp[iot_index].get()
@@ -193,15 +193,17 @@ class Offload:
                             self.process_delay_unfinish_ind[get_task['time'], iot_index] = 1
 
             # PROCESS
-            if self.task_on_process_local[iot_index]['remain'] > 0:
+            if self.task_on_process_local[iot_index]['remain'] > 0:  # iot_index还有没计算完的任务
                 self.task_on_process_local[iot_index]['remain'] = \
                     self.task_on_process_local[iot_index]['remain'] - iot_comp_cap / iot_comp_density
                 # if no remain, compute processing delay
                 if self.task_on_process_local[iot_index]['remain'] <= 0:
+                    # 成功计算完成任务
                     self.process_delay[self.task_on_process_local[iot_index]['time'], iot_index] \
                         = self.time_count - self.task_on_process_local[iot_index]['time'] + 1
                     self.task_on_process_local[iot_index]['remain'] = np.nan
                 elif self.time_count - self.task_on_process_local[iot_index]['time'] + 1 == self.max_delay:
+                    # 如果超出max_delay， 丢弃任务
                     self.process_delay[self.task_on_process_local[iot_index]['time'], iot_index] = self.max_delay
                     self.process_delay_unfinish_ind[self.task_on_process_local[iot_index]['time'], iot_index] = 1
                     self.task_on_process_local[iot_index]['remain'] = np.nan

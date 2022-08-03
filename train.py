@@ -77,7 +77,7 @@ def train(iot_RL_list, NUM_EPISODE):
                 else:
                     action_all[iot_index] = iot_RL_list[iot_index].choose_action(observation)
 
-                if observation[0] != 0:
+                if observation[0] != 0:  # 此时\lambda_m(t)!=0, 说明有新任务到达
                     iot_RL_list[iot_index].do_store_action(episode, env.time_count, action_all[iot_index])
 
             # OBSERVE THE NEXT STATE AND PROCESS DELAY (REWARD)
@@ -153,7 +153,7 @@ if __name__ == "__main__":
     env = Offload(NUM_IOT, NUM_FOG, NUM_TIME, MAX_DELAY)
 
     # GENERATE MULTIPLE CLASSES FOR RL
-    iot_RL_list = list()
+    iot_RL_list = list()  # num_device models
     for iot in range(NUM_IOT):
         iot_RL_list.append(DeepQNetwork(env.n_actions, env.n_features, env.n_lstm_state, env.n_time,
                                         learning_rate=0.01,
