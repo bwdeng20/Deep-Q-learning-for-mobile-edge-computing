@@ -46,9 +46,9 @@ class Offload:
         self.time_count = int(0)
 
         # QUEUE INITIALIZATION: size -> task size; time -> arrive time
-        self.Queue_iot_comp = list()
-        self.Queue_iot_tran = list()
-        self.Queue_fog_comp = list()
+        self.Queue_iot_comp = list() # iot设备本地任务运算队列
+        self.Queue_iot_tran = list() # iot设备到节点的任务发送队列
+        self.Queue_fog_comp = list() # 节点任务运算队列
 
         for iot in range(self.n_iot):
             self.Queue_iot_comp.append(queue.Queue())
@@ -142,7 +142,8 @@ class Offload:
             if self.bitArrive[self.time_count, iot_index] != 0:
                 # state [A, B^{comp}, B^{tran}, [B^{fog}]]
                 observation_all[iot_index, :] = np.hstack([
-                    self.bitArrive[self.time_count, iot_index], self.t_iot_comp[iot_index],
+                    self.bitArrive[self.time_count, iot_index],#self.time_count时刻的任务量
+                    self.t_iot_comp[iot_index],
                     self.t_iot_tran[iot_index],
                     np.squeeze(self.b_fog_comp[iot_index, :])])
 
@@ -170,25 +171,24 @@ class Offload:
             iot_comp_density = self.comp_density[iot_index]
 
             # INPUT
-            if iot_action_local[iot_index] == 1:
+            if iot_action_local[iot_index] == 1: # 在iot设备本地运算，进入本地运算队列
                 tmp_dict = {'size': iot_bitarrive, 'time': self.time_count}
                 self.Queue_iot_comp[iot_index].put(tmp_dict)
 
             # TASK ON PROCESS
             if math.isnan(self.task_on_process_local[iot_index]['remain']) \
                     and (not self.Queue_iot_comp[iot_index].empty()):  # 如果iot_index当前没有需要计算的任务，但任务队列不空
-                while not self.Queue_iot_comp[iot_index].empty():
-                    # only put the non-zero task to the processor
-                    get_task = self.Queue_iot_comp[iot_index].get()
+                while not self.Queue_iot_comp[iot_index].empty(): # iot本地运算队列不为空
+                    get_task = self.Queue_iot_comp[iot_index].get() # 取FIFO队列中的一个任务
                     # since it is at the beginning of the time slot, = self.max_delay is acceptable
-                    if get_task['size'] != 0:
+                    if get_task['size'] != 0:  # only put the non-zero task to the processor
                         if self.time_count - get_task['time'] + 1 <= self.max_delay:
                             self.task_on_process_local[iot_index]['size'] = get_task['size']
                             self.task_on_process_local[iot_index]['time'] = get_task['time']
                             self.task_on_process_local[iot_index]['remain'] \
                                 = self.task_on_process_local[iot_index]['size']
                             break
-                        else:
+                        else: # 任务在self.tim_count时段 超出最大延迟时段数，直接丢弃
                             self.process_delay[get_task['time'], iot_index] = self.max_delay
                             self.process_delay_unfinish_ind[get_task['time'], iot_index] = 1
 
@@ -196,9 +196,8 @@ class Offload:
             if self.task_on_process_local[iot_index]['remain'] > 0:  # iot_index还有没计算完的任务
                 self.task_on_process_local[iot_index]['remain'] = \
                     self.task_on_process_local[iot_index]['remain'] - iot_comp_cap / iot_comp_density
-                # if no remain, compute processing delay
-                if self.task_on_process_local[iot_index]['remain'] <= 0:
-                    # 成功计算完成任务
+                # if no remain, compute processing delay 一个任务计算完成，记录完成时间
+                if self.task_on_process_local[iot_index]['remain'] <= 0: # 成功计算完成任务
                     self.process_delay[self.task_on_process_local[iot_index]['time'], iot_index] \
                         = self.time_count - self.task_on_process_local[iot_index]['time'] + 1
                     self.task_on_process_local[iot_index]['remain'] = np.nan
@@ -206,13 +205,15 @@ class Offload:
                     # 如果超出max_delay， 丢弃任务
                     self.process_delay[self.task_on_process_local[iot_index]['time'], iot_index] = self.max_delay
                     self.process_delay_unfinish_ind[self.task_on_process_local[iot_index]['time'], iot_index] = 1
-                    self.task_on_process_local[iot_index]['remain'] = np.nan
+                    self.task_on_process_local[iot_index]['remain'] = np.nan # 丢了以后当然没任务了
 
-                    self.drop_iot_count = self.drop_iot_count + 1
+                    self.drop_iot_count = self.drop_iot_count + 1 #记录关键性能指标之一。。。
 
             # OTHER INFO self.t_iot_comp[iot_index]
             # update self.t_iot_comp[iot_index] only when iot_bitrate != 0
+            # self.t_iot_comp == max_{t'=0,1,t-1} l_{m}^{comp}(t')
             if iot_bitarrive != 0:
+                # t时段所到达任务 在iot运算队列中被处理完(完成或丢弃)的时段 可以根据当前队列情况计算 （论文中eq.3）
                 tmp_tilde_t_iot_comp = np.max([self.t_iot_comp[iot_index] + 1, self.time_count])
                 self.t_iot_comp[iot_index] = np.min([tmp_tilde_t_iot_comp
                                                      + math.ceil(iot_bitarrive * iot_action_local[iot_index]
@@ -368,8 +369,8 @@ class Offload:
                     # state [A, B^{comp}, B^{tran}, [B^{fog}]]
                     observation_all_[iot_index, :] = np.hstack([
                         self.bitArrive[self.time_count, iot_index],
-                        self.t_iot_comp[iot_index] - self.time_count + 1,
-                        self.t_iot_tran[iot_index] - self.time_count + 1,
+                        self.t_iot_comp[iot_index] - self.time_count + 1, # eq.2
+                        self.t_iot_tran[iot_index] - self.time_count + 1, # eq.2
                         self.b_fog_comp[iot_index, :]])
 
                 lstm_state_all_[iot_index, :] = np.hstack(self.fog_iot_m_observe)
